@@ -3,6 +3,10 @@ import { View, Text, Button, Platform, KeyboardAvoidingView } from 'react-native
 import { GiftedChat, Bubble, InputToolbar } from 'react-native-gifted-chat'
 import AsyncStorage from '@react-native-community/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import CustomActions from './CustomActions';
+import MapView from 'react-native-maps';
+
+
 const firebase = require('firebase');
 require('firebase/firestore');
 
@@ -39,39 +43,34 @@ export default class Chat extends React.Component {
 
 
     componentDidMount() {
-        NetInfo.fetch().then((connection) => {
-            if (connection.isConnected) {
-                this.setState({ isConnected: true });
+        NetInfo.fetch().then((state) => {
+            const isConnected = state.isConnected;
+            if (isConnected) {
+                this.setState({
+                    isConnected: true,
+                });
 
-                // Reference to load messages via Firebase
-                this.referenceChatMessages = firebase
-                    .firestore()
-                    .collection('messages');
-
-                // Authenticates user via Firebase
                 this.authUnsubscribe = firebase
                     .auth()
                     .onAuthStateChanged(async (user) => {
                         if (!user) {
                             await firebase.auth().signInAnonymously();
                         }
-                        // Add user to state
+
                         this.setState({
                             uid: user.uid,
-                            user: {
-                                _id: user.uid,
-                                name: name,
-                                avatar: 'https://placeimg.com/140/140/any',
-                            },
                             messages: [],
                         });
-                        // Listener for collection changes for current user
-                        this.unsubscribeChatUser = this.referenceChatMessages
-                            .orderBy('createdAt', 'desc')
+
+                        this.unsubscribe = this.referenceChatMessages
+                            .orderBy("createdAt", "desc")
                             .onSnapshot(this.onCollectionUpdate);
                     });
             } else {
-                this.setState({ isConnected: false });
+                this.setState({
+                    isConnected: false,
+                });
+
                 this.getMessages();
             }
         });
@@ -85,16 +84,18 @@ export default class Chat extends React.Component {
             let data = doc.data(); // Grabs QueryDocumentSnapshot's data
             messages.push({
                 _id: data._id,
-                text: data.text,
+                text: data.text || "",
                 createdAt: data.createdAt.toDate(),
-                user: data.user
+                user: data.user,
+                image: data.image || null,
+                location: data.location || null,
             });
         });
         this.setState({ messages });
     };
     componentWillUnmount() {
         // Stops listening for authentication
-        this.unsubscribeChatUser();
+        this.unsubscribe();
         // Stops listening for changes
         this.authUnsubscribe();
     }
@@ -172,6 +173,33 @@ export default class Chat extends React.Component {
                 }} />
         );
     }
+    renderCustomActions = (props) => {
+        return <CustomActions {...props} />
+    }
+
+    renderCustomView(props) {
+        const { currentMessage } = props;
+        if (currentMessage.location) {
+            return (
+                <MapView
+                    style={{
+                        width: 150,
+                        height: 100,
+                        borderRadius: 13,
+                        margin: 3
+                    }}
+                    region={{
+                        latitude: currentMessage.location.latitude,
+                        longitude: currentMessage.location.longitude,
+                        latitudeDelta: 0.0922,
+                        longitudeDelta: 0.0421,
+                    }}
+                />
+            );
+        }
+        return null;
+    }
+
     render() {
         let name = this.props.route.params.name;
         let color = this.props.route.params.color;
@@ -182,6 +210,8 @@ export default class Chat extends React.Component {
                 <GiftedChat
                     renderBubble={this.renderBubble.bind(this)}
                     renderInputToolbar={this.renderInputToolbar.bind(this)}
+                    renderActions={this.renderCustomActions}
+                    renderCustomView={this.CustomView}
                     messages={this.state.messages}
                     onSend={(messages) => this.onSend(messages)}
                     user={{
