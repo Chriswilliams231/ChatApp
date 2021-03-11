@@ -16,11 +16,7 @@ export default class Chat extends React.Component {
             this.state = {
                 messages: [],
                 uid: 0,
-                user: {
-                    _id: '',
-                    name: '',
-                    avatar: '',
-                },
+                user: {},
                 isConnected: false,
                 image: null
             };
@@ -215,7 +211,7 @@ export default class Chat extends React.Component {
                     messages={this.state.messages}
                     onSend={(messages) => this.onSend(messages)}
                     user={{
-                        id: this.state.uid,
+                        _id: this.state.uid,
                         avatar: 'https://placeimg.com/140/140/any',
                         name: name,
                     }} />
